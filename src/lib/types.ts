@@ -4,7 +4,7 @@ export interface AudioAsset {
   durationSeconds: number | null;
   relativeDisplayPath: string;
   extension: string;
-  availability: "available" | "inaccessible";
+  availability: "available" | "inaccessible" | "missing" | "unknown";
 }
 
 export interface LibraryInfo {
@@ -13,7 +13,7 @@ export interface LibraryInfo {
 }
 
 export interface AppError {
-  code: "notAuthorized" | "unavailable" | "invalidInput" | "busy" | "internalError";
+  code: "notAuthorized" | "unavailable" | "invalidInput" | "busy" | "internalError" | "databaseError" | "notFound";
   message: string;
 }
 
@@ -36,4 +36,21 @@ export interface ScanStatus {
 export interface AssetList {
   scanId: string | null;
   assets: AudioAsset[];
+}
+
+export interface AssetQuery extends LibraryRequest {
+  search: string;
+  offset: number;
+  limit: number;
+}
+
+export interface AssetPage extends AssetList {
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface SavedLibrary {
+  library: LibraryInfo;
+  active: boolean;
 }

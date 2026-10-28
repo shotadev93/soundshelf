@@ -1,4 +1,4 @@
-import type { AppError, AssetList, AudioAsset, LibraryInfo, ScanPhase, ScanStatus } from "./types.ts";
+import type { AppError, AssetList, AssetPage, AudioAsset, LibraryInfo, SavedLibrary, ScanPhase, ScanStatus } from "./types.ts";
 
 function invalid(): never {
   throw new Error("SoundShelf returned an invalid IPC response.");
@@ -32,7 +32,7 @@ function array(value: unknown): unknown[] {
 export function parseError(value: unknown): AppError {
   const data = record(value);
   const code = data.code;
-  if (code !== "notAuthorized" && code !== "unavailable" && code !== "invalidInput" && code !== "busy" && code !== "internalError") return invalid();
+  if (code !== "notAuthorized" && code !== "unavailable" && code !== "invalidInput" && code !== "busy" && code !== "internalError" && code !== "databaseError" && code !== "notFound") return invalid();
   return { code, message: text(data.message) };
 }
 
@@ -53,7 +53,7 @@ export function parseLibrary(value: unknown): LibraryInfo | null {
 export function parseAsset(value: unknown): AudioAsset {
   const data = record(value);
   const availability = data.availability;
-  if (availability !== "available" && availability !== "inaccessible") return invalid();
+  if (availability !== "available" && availability !== "inaccessible" && availability !== "missing" && availability !== "unknown") return invalid();
   const duration = data.durationSeconds;
   if (duration !== null && (typeof duration !== "number" || !Number.isFinite(duration) || duration < 0)) return invalid();
   return {
@@ -85,4 +85,20 @@ export function parseStatus(value: unknown): ScanStatus {
 export function parseAssets(value: unknown): AssetList {
   const data = record(value);
   return { scanId: nullableText(data.scanId), assets: array(data.assets).map(parseAsset) };
+}
+
+export function parsePage(value: unknown): AssetPage {
+  const data = record(value);
+  const page = { ...parseAssets(data), total: count(data.total), offset: count(data.offset), limit: count(data.limit) };
+  if (page.limit < 1 || page.limit > 200 || page.offset > 1_000_000 || page.assets.length > page.limit || page.assets.length > page.total) return invalid();
+  return page;
+}
+
+export function parseLibraries(value: unknown): SavedLibrary[] {
+  return array(value).map((item) => {
+    const data = record(item);
+    const library = parseLibrary(data.library);
+    if (library === null || typeof data.active !== "boolean") return invalid();
+    return { library, active: data.active };
+  });
 }

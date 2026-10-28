@@ -1,8 +1,7 @@
 //! Read-only, bounded discovery. No filesystem paths are accepted over IPC.
 use crate::{
     contracts::{
-        AppError, AssetList, AudioAsset, Availability, ErrorCode, ScanPhase, ScanStatus,
-        ScanWarning,
+        AppError, AudioAsset, Availability, ErrorCode, ScanPhase, ScanStatus, ScanWarning,
     },
     library::{Library, lock, opaque_id},
     secure_fs::{AuthorizedRoot, same_file},
@@ -28,6 +27,9 @@ const MAX_DURATION: Duration = Duration::from_secs(30);
 pub(crate) struct StoredAsset {
     pub relative_path: PathBuf,
     pub asset: AudioAsset,
+    pub size_bytes: String,
+    pub modified_seconds: String,
+    pub modified_nanoseconds: u32,
 }
 
 #[derive(Default)]
@@ -45,11 +47,13 @@ pub(crate) fn begin(library: &Library) -> Result<ScanStatus, AppError> {
             "A scan is already running for this library.",
         ));
     }
-    data.status = ScanStatus {
+    let status = ScanStatus {
         scan_id: Some(opaque_id()?),
         phase: ScanPhase::Running,
         ..ScanStatus::default()
     };
+    lock(&library.database)?.record_status(&library.info.id, &status)?;
+    data.status = status;
     Ok(data.status.clone())
 }
 
@@ -58,7 +62,9 @@ pub(crate) fn status(library: &Library) -> Result<ScanStatus, AppError> {
     Ok(lock(&library.scan)?.status.clone())
 }
 
-pub(crate) fn assets(library: &Library) -> Result<AssetList, AppError> {
+#[cfg(test)]
+#[allow(dead_code)] // Used by the private-core integration test harness.
+pub(crate) fn assets(library: &Library) -> Result<crate::contracts::AssetList, AppError> {
     library.root.validate()?;
     let data = lock(&library.scan)?;
     if data.status.phase == ScanPhase::Running {
@@ -67,7 +73,7 @@ pub(crate) fn assets(library: &Library) -> Result<AssetList, AppError> {
             "Wait for the scan to finish before loading its results.",
         ));
     }
-    Ok(AssetList {
+    Ok(crate::contracts::AssetList {
         scan_id: data.status.scan_id.clone(),
         assets: data
             .assets
@@ -81,6 +87,9 @@ pub(crate) fn fail(library: &Library, error: AppError) {
     if let Ok(mut data) = lock(&library.scan) {
         data.status.phase = ScanPhase::Failed;
         data.status.error = Some(error);
+        // Failure must remain visible even if the database itself is unavailable.
+        let _ =
+            lock(&library.database).and_then(|db| db.record_status(&library.info.id, &data.status));
         if library.root.validate().is_err() {
             data.assets.clear();
         }
@@ -234,6 +243,9 @@ impl<F: FnMut(&Path, ScanPoint)> Discovery<'_, F> {
             };
             self.result.push(StoredAsset {
                 relative_path: path.to_path_buf(),
+                size_bytes: metadata.len().to_string(),
+                modified_seconds: std::os::unix::fs::MetadataExt::mtime(&metadata).to_string(),
+                modified_nanoseconds: std::os::unix::fs::MetadataExt::mtime_nsec(&metadata) as u32,
                 asset: AudioAsset {
                     id,
                     name: path
@@ -261,7 +273,7 @@ pub(crate) fn execute_with_hook(
     library: &Library,
     before_access: impl FnMut(&Path, ScanPoint),
 ) -> Result<(), AppError> {
-    let (status, previous) = {
+    let status = {
         let data = lock(&library.scan)?;
         if data.status.phase != ScanPhase::Running {
             return Err(AppError::new(
@@ -269,14 +281,10 @@ pub(crate) fn execute_with_hook(
                 "Start a scan before running discovery.",
             ));
         }
-        (
-            data.status.clone(),
-            data.assets
-                .iter()
-                .map(|entry| (entry.relative_path.clone(), entry.asset.id.clone()))
-                .collect(),
-        )
+        data.status.clone()
     };
+    // Release the database lock before any traversal or access hook executes.
+    let previous = lock(&library.database)?.identities(&library.info.id)?;
     let mut discovery = Discovery {
         root: &library.root,
         library,
@@ -298,6 +306,7 @@ pub(crate) fn execute_with_hook(
     } else {
         ScanPhase::Partial
     };
+    lock(&library.database)?.reconcile(&library.info.id, &discovery.status, &discovery.result)?;
     let mut data = lock(&library.scan)?;
     data.assets = discovery.result;
     data.status = discovery.status;

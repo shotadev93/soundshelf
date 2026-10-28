@@ -1,5 +1,5 @@
 //! Session authorization. Paths enter here only from the native picker, never IPC.
-use crate::contracts::{AppError, ErrorCode, LibraryInfo};
+use crate::contracts::{AppError, ErrorCode, LibraryInfo, SavedLibrary};
 use crate::secure_fs::AuthorizedRoot;
 use std::{
     collections::HashMap,
@@ -7,14 +7,15 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-#[derive(Default)]
 pub struct LibraryState {
+    pub(crate) database: Arc<Mutex<crate::db::Database>>,
     libraries: Mutex<HashMap<String, Arc<Library>>>,
     pub(crate) picker_open: std::sync::atomic::AtomicBool,
 }
 
 pub(crate) struct Library {
     pub info: LibraryInfo,
+    pub database: Arc<Mutex<crate::db::Database>>,
     pub root: AuthorizedRoot,
     pub scan: Mutex<crate::scan::ScanData>,
 }
@@ -35,7 +36,39 @@ pub(crate) fn opaque_id() -> Result<String, AppError> {
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
+#[cfg(test)]
+impl Default for LibraryState {
+    fn default() -> Self {
+        Self::new(crate::db::Database::memory())
+    }
+}
+
 impl LibraryState {
+    pub(crate) fn new(database: crate::db::Database) -> Self {
+        Self {
+            database: Arc::new(Mutex::new(database)),
+            libraries: Mutex::new(HashMap::new()),
+            picker_open: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+
+    pub(crate) fn saved_libraries(&self) -> Result<Vec<SavedLibrary>, AppError> {
+        let saved = lock(&self.database)?.libraries()?;
+        let active = lock(&self.libraries)?;
+        Ok(saved
+            .into_iter()
+            .map(|library| {
+                let authorized = active
+                    .get(&library.id)
+                    .is_some_and(|entry| entry.root.validate().is_ok());
+                SavedLibrary {
+                    library,
+                    active: authorized,
+                }
+            })
+            .collect())
+    }
+
     pub(crate) fn authorize_selection(
         &self,
         selected: Option<PathBuf>,
@@ -65,15 +98,13 @@ impl LibraryState {
                 "The session library limit was reached. Restart to select other directories.",
             ));
         }
-        let info = LibraryInfo {
-            id: opaque_id()?,
-            display_path: root.path().to_string_lossy().into_owned(),
-        };
+        let info = lock(&self.database)?.register(root.path())?;
         libraries.insert(
             info.id.clone(),
             Arc::new(Library {
                 info: info.clone(),
                 root,
+                database: Arc::clone(&self.database),
                 scan: Mutex::new(crate::scan::ScanData::default()),
             }),
         );

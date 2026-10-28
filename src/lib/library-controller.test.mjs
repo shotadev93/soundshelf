@@ -17,7 +17,8 @@ function api(overrides = {}) {
     selectDirectory: async () => fixture.library,
     startScan: async () => { scanned = true; return fixture.running; },
     getStatus: async () => scanned ? fixture.complete : fixture.idle,
-    listAssets: async () => fixture.assets,
+    listAssets: async () => fixture.page,
+    listLibraries: async () => fixture.savedLibraries,
     ...overrides,
   };
 }
@@ -44,14 +45,14 @@ test("a late old-library result cannot overwrite the newly selected library", as
     selectDirectory: async () => selected,
     startScan: async () => { scanned = true; return fixture.running; },
     getStatus: async () => selected.id === fixture.library.id && scanned ? fixture.complete : fixture.idle,
-    listAssets: () => { requested.resolve(); return pending.promise; },
+    listAssets: () => { if (!scanned || selected.id !== fixture.library.id) return Promise.resolve(fixture.emptyPage); requested.resolve(); return pending.promise; },
   }));
   await controller.selectDirectory();
   const scanning = controller.scan();
   await requested.promise;
   selected = { id: "other-library", displayPath: "/synthetic/other" };
   await controller.selectDirectory();
-  pending.resolve(fixture.assets);
+  pending.resolve(fixture.page);
   await scanning;
   assert.equal(controller.getSnapshot().library.id, "other-library");
   assert.deepEqual(controller.getSnapshot().assets, []);
@@ -84,7 +85,7 @@ test("canceling a picker does not cancel an in-progress scan", async () => {
   controller.cancelPending();
 });
 
-test("partial and empty results remain usable, revoked authorization clears results", async () => {
+test("partial and empty results remain usable, revoked authorization keeps the saved library", async () => {
   let scanned = false;
   let revoked = false;
   const controller = new LibraryController(api({
@@ -94,7 +95,7 @@ test("partial and empty results remain usable, revoked authorization clears resu
       return fixture.running;
     },
     getStatus: async () => scanned ? fixture.partial : fixture.idle,
-    listAssets: async () => ({ scanId: fixture.partial.scanId, assets: [] }),
+    listAssets: async () => ({ ...fixture.emptyPage, scanId: fixture.partial.scanId }),
   }));
   await controller.selectDirectory();
   await controller.scan();
@@ -103,7 +104,8 @@ test("partial and empty results remain usable, revoked authorization clears resu
   assert.equal(controller.getSnapshot().error, null);
   revoked = true;
   await controller.scan();
-  assert.equal(controller.getSnapshot().library, null);
+  assert.deepEqual(controller.getSnapshot().library, fixture.library);
+  assert.equal(controller.getSnapshot().active, false);
   assert.equal(controller.getSnapshot().error.code, "notAuthorized");
   controller.cancelPending();
 });
@@ -113,11 +115,11 @@ test("busy scans are polled and mismatched scan results are rejected", async () 
   const controller = new LibraryController(api({
     startScan: async () => { scanned = true; throw { code: "busy", message: "Already scanning." }; },
     getStatus: async () => scanned ? fixture.complete : fixture.idle,
-    listAssets: async () => ({ ...fixture.assets, scanId: "stale-scan" }),
+    listAssets: async () => ({ ...fixture.page, scanId: "stale-scan" }),
   }));
   await controller.selectDirectory();
   await controller.scan();
-  assert.deepEqual(controller.getSnapshot().assets, []);
+  assert.deepEqual(controller.getSnapshot().assets, fixture.page.assets); // Last stored snapshot remains visible.
   assert.equal(controller.getSnapshot().scanning, false);
   assert.match(controller.getSnapshot().error.message, /different scan/);
   controller.cancelPending();
@@ -176,4 +178,70 @@ test("late scan-start and picker responses are discarded after the view changes"
   selection.resolve(fixture.library);
   await selecting;
   assert.equal(closed.getSnapshot().library, null);
+});
+
+
+test("restart loads saved assets while inactive, reselecting the same library authorizes scanning", async () => {
+  let starts = 0;
+  const controller = new LibraryController(api({ startScan: async () => { starts++; return fixture.running; }, getStatus: async () => fixture.idle }));
+  await controller.initialize();
+  assert.deepEqual(controller.getSnapshot().assets, fixture.page.assets);
+  assert.equal(controller.getSnapshot().active, false);
+  await controller.scan();
+  assert.equal(starts, 0);
+  await controller.selectDirectory();
+  assert.equal(controller.getSnapshot().active, true);
+  controller.cancelPending();
+});
+
+test("new search and navigation discard late queries, and search resets pagination", async () => {
+  const old = deferred();
+  const requests = [];
+  const controller = new LibraryController(api({ listAssets: async (request) => {
+    requests.push(request);
+    if (request.search === "old") return old.promise;
+    return { ...fixture.page, offset: request.offset, total: 120 };
+  } }));
+  await controller.initialize();
+  await controller.page(50);
+  assert.equal(controller.getSnapshot().offset, 50);
+  const searching = controller.search("old");
+  await controller.search(fixture.query.search);
+  assert.equal(controller.getSnapshot().offset, 0);
+  assert.deepEqual(requests.at(-1), fixture.query);
+  old.resolve({ ...fixture.emptyPage });
+  await searching;
+  assert.equal(controller.getSnapshot().search, fixture.query.search);
+  assert.equal(controller.getSnapshot().total, 120);
+  controller.cancelPending();
+});
+
+test("database query failure is recoverable and retains the saved library", async () => {
+  let fail = true;
+  const controller = new LibraryController(api({ listAssets: async () => {
+    if (fail) throw { code: "databaseError", message: "Database unavailable." };
+    return fixture.page;
+  } }));
+  await controller.initialize();
+  assert.equal(controller.getSnapshot().error.code, "databaseError");
+  assert.equal(controller.getSnapshot().loading, false);
+  assert.deepEqual(controller.getSnapshot().library, fixture.library);
+  fail = false;
+  await controller.reload();
+  assert.equal(controller.getSnapshot().error, null);
+  assert.deepEqual(controller.getSnapshot().assets, fixture.page.assets);
+  controller.cancelPending();
+});
+
+test("a shrinking last page returns to the final valid page", async () => {
+  const offsets = [];
+  const controller = new LibraryController(api({ listAssets: async (request) => {
+    offsets.push(request.offset);
+    return { ...fixture.page, assets: request.offset < 51 ? fixture.page.assets : [], offset: request.offset, total: 51 };
+  } }));
+  await controller.initialize();
+  await controller.page(100);
+  assert.equal(controller.getSnapshot().offset, 50);
+  assert.deepEqual(offsets, [0,100,50]);
+  controller.cancelPending();
 });

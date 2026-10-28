@@ -3,7 +3,7 @@ use crate::{
     library::LibraryState,
 };
 use crate::{
-    contracts::{AssetList, LibraryRequest, ScanStatus},
+    contracts::{AssetPage, AssetQuery, LibraryRequest, SavedLibrary, ScanStatus},
     scan,
 };
 use gtk::prelude::*;
@@ -59,10 +59,13 @@ pub(crate) async fn scan_library(
 ) -> Result<ScanStatus, AppError> {
     check_window(&window)?;
     let state = Arc::clone(state.inner());
-    let library = tauri::async_runtime::spawn_blocking(move || state.get(&request.library_id))
-        .await
-        .map_err(|_| AppError::unavailable("Library validation failed."))??;
-    let status = scan::begin(&library)?;
+    let (library, status) = tauri::async_runtime::spawn_blocking(move || {
+        let library = state.get(&request.library_id)?;
+        let status = scan::begin(&library)?;
+        Ok::<_, AppError>((library, status))
+    })
+    .await
+    .map_err(|_| AppError::unavailable("Library validation failed."))??;
     tauri::async_runtime::spawn(async move {
         let worker = Arc::clone(&library);
         match tauri::async_runtime::spawn_blocking(move || scan::execute(&worker)).await {
@@ -97,16 +100,27 @@ pub(crate) async fn get_scan_status(
 pub(crate) async fn list_assets(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<LibraryState>>,
-    request: LibraryRequest,
-) -> Result<AssetList, AppError> {
+    request: AssetQuery,
+) -> Result<AssetPage, AppError> {
     check_window(&window)?;
     let state = Arc::clone(state.inner());
     tauri::async_runtime::spawn_blocking(move || {
-        let library = state.get(&request.library_id)?;
-        scan::assets(&library)
+        crate::library::lock(&state.database)?.query(&request)
     })
     .await
     .map_err(|_| AppError::unavailable("Library results are unavailable."))?
+}
+
+#[tauri::command]
+pub(crate) async fn list_libraries(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+) -> Result<Vec<SavedLibrary>, AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || state.saved_libraries())
+        .await
+        .map_err(|_| AppError::unavailable("Saved libraries are unavailable."))?
 }
 
 #[tauri::command]

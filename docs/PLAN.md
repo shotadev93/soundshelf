@@ -1,6 +1,6 @@
 # SoundShelf MVP architecture plan
 
-This document describes the target architecture and acceptance criteria. Discovery implementation and verification status are recorded in `docs/MILESTONE_1.md`; later milestones remain planned. Follow the four milestones in order, and do not assume a proposed module exists until its implementation is verified.
+This document describes the target architecture and acceptance criteria. Discovery implementation and verification status are recorded in `docs/MILESTONE_1.md`; persistent indexing and search are recorded in `docs/MILESTONE_2.md`. Native GUI acceptance checks remain outstanding; milestones 3–4 remain planned. Follow the four milestones in order, and do not assume a proposed module exists until its implementation is verified.
 
 ## Architecture overview
 

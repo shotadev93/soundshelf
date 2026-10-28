@@ -32,3 +32,68 @@ button:hover:not(:disabled) { background: #e8eef7; }
   .assets small { color: #b5c1d0; }
   .assets li { border-color: #465365; }
 }
+
+.saved-libraries, .search { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; margin-block: 1rem; }
+/* Keep native popup controls on the same theme as their explicit text colors. */
+.saved-libraries {
+  color-scheme: light;
+  --library-text: #17202a;
+  --library-surface: #ffffff;
+  --library-hover: #e8eef7;
+  --library-selected-text: #ffffff;
+  --library-selected: #186ac9;
+  --library-selected-hover: #1559a8;
+  --library-border: #50647b;
+  --library-focus: #186ac9;
+}
+.saved-libraries select {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--library-text);
+  background-color: var(--library-surface);
+  border-color: var(--library-border);
+}
+.saved-libraries select:hover:not(:disabled) {
+  background-color: var(--library-hover);
+  border-color: var(--library-focus);
+}
+.saved-libraries select:focus-visible {
+  outline: 3px solid var(--library-focus);
+  outline-offset: 3px;
+}
+/* Native popup state styling varies by platform; color-scheme also themes it. */
+.saved-libraries option {
+  color: var(--library-text);
+  background-color: var(--library-surface);
+}
+.saved-libraries option:hover {
+  color: var(--library-text);
+  background-color: var(--library-hover);
+}
+.saved-libraries option:checked {
+  color: var(--library-selected-text);
+  background-color: var(--library-selected);
+  font-weight: 600;
+}
+.saved-libraries option:checked:hover {
+  background-color: var(--library-selected-hover);
+}
+@media (prefers-color-scheme: dark) {
+  .saved-libraries {
+    color-scheme: dark;
+    --library-text: #e8edf4;
+    --library-surface: #252d38;
+    --library-hover: #344258;
+    --library-selected-text: #17202a;
+    --library-selected: #9bc5ff;
+    --library-selected-hover: #bedaff;
+    --library-border: #96a6ba;
+    --library-focus: #9bc5ff;
+  }
+}
+.search label, .search small { flex-basis: 100%; }
+.search input { flex: 1; min-width: 8rem; }
+input, select { font: inherit; padding: 0.6rem; border: 1px solid #888; border-radius: 6px; color: inherit; background: transparent; }
+.pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-block: 1rem; }
+.help, .search small { font-size: 0.85rem; }
+input:focus-visible, select:focus-visible { outline: 3px solid #747bff; outline-offset: 3px; }

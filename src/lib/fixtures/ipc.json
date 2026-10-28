@@ -90,6 +90,62 @@
     "unavailable",
     "invalidInput",
     "busy",
-    "internalError"
-  ]
+    "internalError",
+    "databaseError",
+    "notFound"
+  ],
+  "page": {
+    "scanId": "scan-fixture",
+    "assets": [
+      {
+        "id": "asset-fixture",
+        "name": "kick.WAV",
+        "durationSeconds": null,
+        "relativeDisplayPath": "drums/kick.WAV",
+        "extension": "wav",
+        "availability": "available"
+      }
+    ],
+    "total": 1,
+    "offset": 0,
+    "limit": 50
+  },
+  "query": {
+    "libraryId": "library-fixture",
+    "search": "kick%_'日本語",
+    "offset": 0,
+    "limit": 50
+  },
+  "savedLibraries": [
+    {
+      "library": {
+        "id": "library-fixture",
+        "displayPath": "/synthetic/audio"
+      },
+      "active": false
+    }
+  ],
+  "missing": {
+    "id": "asset-fixture",
+    "name": "kick.WAV",
+    "durationSeconds": null,
+    "relativeDisplayPath": "drums/kick.WAV",
+    "extension": "wav",
+    "availability": "missing"
+  },
+  "unknown": {
+    "id": "asset-fixture",
+    "name": "kick.WAV",
+    "durationSeconds": null,
+    "relativeDisplayPath": "drums/kick.WAV",
+    "extension": "wav",
+    "availability": "unknown"
+  },
+  "emptyPage": {
+    "scanId": null,
+    "assets": [],
+    "total": 0,
+    "offset": 0,
+    "limit": 50
+  }
 }

@@ -16,6 +16,8 @@ pub struct AudioAsset {
 pub enum Availability {
     Available,
     Inaccessible,
+    Missing,
+    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -26,6 +28,8 @@ pub enum ErrorCode {
     InvalidInput,
     Busy,
     InternalError,
+    DatabaseError,
+    NotFound,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -104,9 +108,37 @@ impl Default for ScanStatus {
     }
 }
 
+#[cfg(test)]
+#[allow(dead_code)] // Discovery-only snapshot used by integration security tests.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetList {
     pub scan_id: Option<String>,
     pub assets: Vec<AudioAsset>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AssetQuery {
+    pub library_id: String,
+    pub search: String,
+    pub offset: u32,
+    pub limit: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetPage {
+    pub scan_id: Option<String>,
+    pub assets: Vec<AudioAsset>,
+    pub total: u32,
+    pub offset: u32,
+    pub limit: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLibrary {
+    pub library: LibraryInfo,
+    pub active: bool,
 }

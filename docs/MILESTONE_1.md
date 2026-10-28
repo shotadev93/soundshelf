@@ -1,6 +1,6 @@
 # Discovery implementation and verification
 
-Milestones 1B–1E have an implementation with automated coverage. Final Milestone 1 acceptance still requires the manual native Linux checks below. This document does not certify the scanner as security-complete or replace those checks. SQLite, playback, tags, favorites, and Milestone 2 have not been implemented.
+Milestones 1B–1E have an implementation with automated coverage. Final Milestone 1 acceptance still requires the manual native Linux checks below. This document does not certify the scanner as security-complete or replace those checks. This records the Milestone 1 implementation state. SQLite indexing and search were subsequently implemented on explicit request; see `docs/MILESTONE_2.md`. Playback and metadata editing remain unimplemented.
 
 ## Implementation
 
@@ -75,4 +75,4 @@ Use a disposable test directory, not a personal library.
 4. Rename or remove the selected root externally using only the disposable fixture. A subsequent command must revoke access and require reselection. Restart the application and confirm no filesystem access is restored automatically.
 5. Build with `npm run tauri -- build --debug --no-bundle` and run `src-tauri/target/debug/soundshelf`. Verify selection → scan → React results with bundled assets, no IPC permission/CSP errors, and no need for a Vite server. This is the remaining native end-to-end check; an executable build alone does not prove it.
 
-Do not begin Milestone 2 until these results are recorded and any native integration issues are fixed.
+These native checks remain an acceptance gate. Milestone 2 was explicitly requested while they were outstanding; its automated results do not substitute for these checks.
