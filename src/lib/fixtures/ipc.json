@@ -1,0 +1,95 @@
+{
+  "library": {
+    "id": "library-fixture",
+    "displayPath": "/synthetic/audio"
+  },
+  "cancellation": null,
+  "request": {
+    "libraryId": "library-fixture"
+  },
+  "assets": {
+    "scanId": "scan-fixture",
+    "assets": [
+      {
+        "id": "asset-fixture",
+        "name": "kick.WAV",
+        "durationSeconds": null,
+        "relativeDisplayPath": "drums/kick.WAV",
+        "extension": "wav",
+        "availability": "available"
+      }
+    ]
+  },
+  "inaccessible": {
+    "id": "asset-fixture",
+    "name": "kick.WAV",
+    "durationSeconds": null,
+    "relativeDisplayPath": "drums/kick.WAV",
+    "extension": "wav",
+    "availability": "inaccessible"
+  },
+  "idle": {
+    "scanId": null,
+    "phase": "idle",
+    "visitedEntries": 0,
+    "discoveredAssets": 0,
+    "warningCount": 0,
+    "warnings": [],
+    "error": null
+  },
+  "running": {
+    "scanId": "scan-fixture",
+    "phase": "running",
+    "visitedEntries": 2,
+    "discoveredAssets": 1,
+    "warningCount": 0,
+    "warnings": [],
+    "error": null
+  },
+  "complete": {
+    "scanId": "scan-fixture",
+    "phase": "complete",
+    "visitedEntries": 2,
+    "discoveredAssets": 1,
+    "warningCount": 0,
+    "warnings": [],
+    "error": null
+  },
+  "partial": {
+    "scanId": "scan-fixture",
+    "phase": "partial",
+    "visitedEntries": 2,
+    "discoveredAssets": 1,
+    "warningCount": 1,
+    "warnings": [
+      {
+        "message": "The audio candidate cannot be read.",
+        "relativeDisplayPath": "locked.mp3"
+      }
+    ],
+    "error": null
+  },
+  "failed": {
+    "scanId": "scan-fixture",
+    "phase": "failed",
+    "visitedEntries": 2,
+    "discoveredAssets": 1,
+    "warningCount": 0,
+    "warnings": [],
+    "error": {
+      "code": "notAuthorized",
+      "message": "Select an audio directory to authorize access."
+    }
+  },
+  "error": {
+    "code": "notAuthorized",
+    "message": "Select an audio directory to authorize access."
+  },
+  "errorCodes": [
+    "notAuthorized",
+    "unavailable",
+    "invalidInput",
+    "busy",
+    "internalError"
+  ]
+}
