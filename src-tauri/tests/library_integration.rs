@@ -6,6 +6,8 @@ mod contracts;
 mod db;
 #[path = "../src/library.rs"]
 mod library;
+#[path = "../src/playback.rs"]
+mod playback;
 #[path = "../src/scan.rs"]
 mod scan;
 #[path = "../src/secure_fs.rs"]

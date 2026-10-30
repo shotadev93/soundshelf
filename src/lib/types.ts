@@ -54,3 +54,11 @@ export interface SavedLibrary {
   library: LibraryInfo;
   active: boolean;
 }
+
+export interface PlaybackRequest extends LibraryRequest {
+  assetId: string;
+}
+
+export interface PlaybackSource {
+  url: string;
+}

@@ -1,4 +1,4 @@
-import type { AppError, AssetList, AssetPage, AudioAsset, LibraryInfo, SavedLibrary, ScanPhase, ScanStatus } from "./types.ts";
+import type { AppError, AssetList, AssetPage, AudioAsset, LibraryInfo, PlaybackSource, SavedLibrary, ScanPhase, ScanStatus } from "./types.ts";
 
 function invalid(): never {
   throw new Error("SoundShelf returned an invalid IPC response.");
@@ -101,4 +101,12 @@ export function parseLibraries(value: unknown): SavedLibrary[] {
     if (library === null || typeof data.active !== "boolean") return invalid();
     return { library, active: data.active };
   });
+}
+
+export function parsePlayback(value: unknown): PlaybackSource {
+  const data = record(value);
+  const url = text(data.url);
+  if (!/^http:\/\/127\.0\.0\.1:([1-9][0-9]{0,4})\/audio\/[a-f0-9]{32}$/.test(url)) return invalid();
+  if (Number(new URL(url).port) > 65535) return invalid();
+  return { url };
 }

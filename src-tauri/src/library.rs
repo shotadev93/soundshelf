@@ -9,6 +9,7 @@ use std::{
 
 pub struct LibraryState {
     pub(crate) database: Arc<Mutex<crate::db::Database>>,
+    pub(crate) playback: crate::playback::PlaybackTokens,
     libraries: Mutex<HashMap<String, Arc<Library>>>,
     pub(crate) picker_open: std::sync::atomic::AtomicBool,
 }
@@ -46,6 +47,7 @@ impl Default for LibraryState {
 impl LibraryState {
     pub(crate) fn new(database: crate::db::Database) -> Self {
         Self {
+            playback: crate::playback::PlaybackTokens::default(),
             database: Arc::new(Mutex::new(database)),
             libraries: Mutex::new(HashMap::new()),
             picker_open: std::sync::atomic::AtomicBool::new(false),

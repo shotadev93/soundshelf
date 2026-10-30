@@ -147,5 +147,12 @@
     "total": 0,
     "offset": 0,
     "limit": 50
+  },
+  "playbackRequest": {
+    "libraryId": "library-fixture",
+    "assetId": "asset-fixture"
+  },
+  "playbackSource": {
+    "url": "http://127.0.0.1:43123/audio/0123456789abcdef0123456789abcdef"
   }
 }

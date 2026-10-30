@@ -6,6 +6,7 @@ fn main() {
             "get_scan_status",
             "list_assets",
             "list_libraries",
+            "prepare_playback",
         ]),
     ))
     .expect("failed to build Tauri command permissions")

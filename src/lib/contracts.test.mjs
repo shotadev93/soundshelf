@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseAsset, parseAssets, parsePage, parseLibraries, parseError, parseLibrary, parseStatus } from "./contracts.ts";
+import { parsePlayback, parseAsset, parseAssets, parsePage, parseLibraries, parseError, parseLibrary, parseStatus } from "./contracts.ts";
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/ipc.json", import.meta.url), "utf8"));
 
 test("real IPC fixtures match the checked TypeScript boundary", () => {
@@ -34,4 +34,11 @@ test("pagination and saved-library response validation reject malformed data", (
   }
   assert.throws(() => parseLibraries([{ library: null, active: false }]));
   assert.throws(() => parseLibraries([{ library: fixture.library, active: "yes" }]));
+});
+
+test("playback IPC accepts only the scoped opaque URL", () => {
+  assert.deepEqual(parsePlayback(fixture.playbackSource), fixture.playbackSource);
+  for (const url of ["file:///etc/passwd", "https://example.com/audio.wav", "soundshelf-audio://localhost/../../etc/passwd", fixture.playbackSource.url + "?path=secret", fixture.playbackSource.url.replace("127.0.0.1", "example.com"), fixture.playbackSource.url.replace("43123", "65536"), fixture.playbackSource.url.replace("43123", "0"), "soundshelf-audio://localhost/0123456789abcdef0123456789abcdef"]) {
+    assert.throws(() => parsePlayback({ url }));
+  }
 });

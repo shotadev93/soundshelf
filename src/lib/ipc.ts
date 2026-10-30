@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { parsePage, parseLibraries, parseLibrary, parseStatus } from "./contracts.ts";
-import type { AssetPage, AssetQuery, SavedLibrary, LibraryInfo, LibraryRequest, ScanStatus } from "./types.ts";
+import { parsePlayback, parsePage, parseLibraries, parseLibrary, parseStatus } from "./contracts.ts";
+import type { AssetPage, AssetQuery, SavedLibrary, LibraryInfo, LibraryRequest, PlaybackRequest, PlaybackSource, ScanStatus } from "./types.ts";
 
 export interface LibraryApi {
   selectDirectory(): Promise<LibraryInfo | null>;
@@ -19,3 +19,7 @@ export const libraryApi: LibraryApi = {
   async listAssets(query) { return parsePage(await invoke<unknown>("list_assets", { request: query })); },
   async listLibraries() { return parseLibraries(await invoke<unknown>("list_libraries")); },
 };
+
+export async function preparePlayback(request: PlaybackRequest): Promise<PlaybackSource> {
+  return parsePlayback(await invoke<unknown>("prepare_playback", { request }));
+}

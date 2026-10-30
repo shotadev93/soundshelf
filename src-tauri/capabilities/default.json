@@ -8,6 +8,7 @@
     "allow-scan-library",
     "allow-get-scan-status",
     "allow-list-assets",
-    "allow-list-libraries"
+    "allow-list-libraries",
+    "allow-prepare-playback"
   ]
 }

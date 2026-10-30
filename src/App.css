@@ -97,3 +97,11 @@ input, select { font: inherit; padding: 0.6rem; border: 1px solid #888; border-r
 .pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-block: 1rem; }
 .help, .search small { font-size: 0.85rem; }
 input:focus-visible, select:focus-visible { outline: 3px solid #747bff; outline-offset: 3px; }
+
+.audio-player { border: 1px solid #50647b; border-radius: 0.4rem; padding: 1rem; margin-block: 1.5rem; }
+.audio-player input[type="range"] { display: block; width: 100%; accent-color: #186ac9; }
+.assets li > button { justify-self: start; }
+@media (prefers-color-scheme: dark) {
+  .audio-player { border-color: #96a6ba; }
+  .audio-player input[type="range"] { accent-color: #9bc5ff; }
+}

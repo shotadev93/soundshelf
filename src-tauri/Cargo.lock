@@ -2918,8 +2918,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "soup3",
  "tauri",
  "tauri-build",
+ "webkit2gtk",
 ]
 
 [[package]]

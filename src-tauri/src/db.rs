@@ -105,6 +105,25 @@ impl Database {
             .map_err(database_error)
     }
 
+    pub(crate) fn playback_asset(
+        &self,
+        library_id: &str,
+        asset_id: &str,
+    ) -> Result<(PathBuf, String), AppError> {
+        self.0
+            .query_row(
+                "SELECT relative_path,extension FROM assets WHERE library_id=?1 AND id=?2",
+                params![library_id, asset_id],
+                |row| {
+                    let bytes: Vec<u8> = row.get(0)?;
+                    Ok((PathBuf::from(OsString::from_vec(bytes)), row.get(1)?))
+                },
+            )
+            .optional()
+            .map_err(database_error)?
+            .ok_or_else(|| AppError::new(ErrorCode::NotFound, "The audio asset was not found."))
+    }
+
     pub(crate) fn identities(
         &self,
         library_id: &str,

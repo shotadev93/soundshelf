@@ -209,3 +209,18 @@ mod tests {
         );
     }
 }
+
+#[tauri::command]
+pub(crate) async fn prepare_playback(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+    request: crate::contracts::PlaybackRequest,
+    endpoint: tauri::State<'_, crate::playback_protocol::PlaybackEndpoint>,
+) -> Result<crate::contracts::PlaybackSource, AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    let source = tauri::async_runtime::spawn_blocking(move || state.prepare_playback(request))
+        .await
+        .map_err(|_| AppError::unavailable("Playback preparation failed."))??;
+    Ok(endpoint.source(source))
+}

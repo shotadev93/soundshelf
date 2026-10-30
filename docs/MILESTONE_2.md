@@ -1,6 +1,6 @@
 # Persistent, searchable library
 
-Milestone 2 implements SQLite indexing, scan reconciliation, saved-library browsing, and filename/path search. Automated checks pass. User-reported Linux GUI testing confirms scanning, folder selection, clearing, saved-library selection, and English/Japanese search. GUI results and the completed Saved Library contrast follow-up are recorded below. Playback and metadata editing have not been implemented; Milestone 3 has not started.
+Milestone 2 implements SQLite indexing, scan reconciliation, saved-library browsing, and filename/path search. Automated checks pass. User-reported Linux GUI testing confirms scanning, folder selection, clearing, saved-library selection, and English/Japanese search. GUI results and the completed Saved Library contrast follow-up are recorded below. This document records Milestone 2. Playback was subsequently implemented in Milestone 3; see `docs/MILESTONE_3.md` for its verification limits. Metadata editing remains planned.
 
 ## Phase reviews
 

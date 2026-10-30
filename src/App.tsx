@@ -1,6 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { LibraryController } from "./lib/library-controller";
 import { libraryApi } from "./lib/ipc";
+import { AudioPlayer } from "./components/AudioPlayer";
+import type { PlaybackSelection } from "./lib/playback-controller";
 import "./App.css";
 
 function App() {
@@ -10,6 +12,7 @@ function App() {
     void controller.initialize();
     return controller.cancelPending;
   }, [controller]);
+  const [playbackSelection, setPlaybackSelection] = useState<PlaybackSelection | null>(null);
   const [search, setSearch] = useState("");
   const { library, assets, status, selecting, scanning, error, loading, active } = view;
   useEffect(() => { setSearch(""); }, [library?.id]);
@@ -38,7 +41,7 @@ function App() {
         </select>
       </label>}
       <p className="directory"><strong>Directory:</strong> {library?.displayPath ?? "No directory selected"}</p>
-      {library && !active && <p>This saved library is inactive. Search remains available. Select its directory again through the picker to authorize a scan.</p>}
+      {library && !active && <p>This saved library is inactive. Search remains available. Select its directory again through the picker to authorize scanning and playback.</p>}
       <div role="status" aria-live="polite" aria-atomic="true">
         {scanning && <p>{status?.phase === "running"
           ? `Scanning: ${status.visitedEntries} entries checked, ${status.discoveredAssets} audio candidates found.`
@@ -58,6 +61,7 @@ function App() {
           {status.warningCount > status.warnings.length && <p>Only the first {status.warnings.length} warnings are shown.</p>}
         </section>
       )}
+      <AudioPlayer libraryId={library?.id} active={active} selection={playbackSelection} />
       <section aria-labelledby="assets-heading" aria-busy={scanning || loading}>
         <h2 id="assets-heading">Audio library</h2>
         {!library && !loading && <p>Select an audio directory to begin.</p>}
@@ -79,6 +83,9 @@ function App() {
             <strong className="path">{asset.name}</strong>
             <span>{asset.extension.toUpperCase()} · {{ available: "Available", missing: "Missing", inaccessible: "Inaccessible", unknown: "Unknown" }[asset.availability]}</span>
             <small className="path">{asset.relativeDisplayPath}</small>
+            <button type="button" disabled={!active || !library} aria-label={`Play ${asset.name}`} onClick={() => {
+              if (library) setPlaybackSelection({ libraryId: library.id, assetId: asset.id, name: asset.name });
+            }}>Play</button>
           </li>)}</ul>
         </>}
         {library && <nav className="pagination" aria-label="Asset pages">

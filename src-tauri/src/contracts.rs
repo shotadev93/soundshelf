@@ -142,3 +142,16 @@ pub struct SavedLibrary {
     pub library: LibraryInfo,
     pub active: bool,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PlaybackRequest {
+    pub library_id: String,
+    pub asset_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackSource {
+    pub url: String,
+}
