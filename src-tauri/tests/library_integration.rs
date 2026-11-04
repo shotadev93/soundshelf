@@ -481,33 +481,6 @@ fn excessive_directory_depth_produces_bounded_partial_results() {
 
 #[test]
 fn scans_leave_original_hashes_names_modes_and_modification_times_unchanged() {
-    use sha2::{Digest, Sha256};
-    use std::{collections::BTreeMap, os::unix::fs::MetadataExt, path::Path};
-    fn snapshot(root: &Path) -> BTreeMap<std::path::PathBuf, (Vec<u8>, u32, i64, i64)> {
-        let mut result = BTreeMap::new();
-        for entry in fs::read_dir(root).unwrap() {
-            let entry = entry.unwrap();
-            let metadata = entry.metadata().unwrap();
-            let hash = if metadata.is_file() {
-                Sha256::digest(fs::read(entry.path()).unwrap()).to_vec()
-            } else {
-                vec![]
-            };
-            result.insert(
-                entry.path(),
-                (
-                    hash,
-                    metadata.mode(),
-                    metadata.mtime(),
-                    metadata.mtime_nsec(),
-                ),
-            );
-            if metadata.is_dir() {
-                result.extend(snapshot(&entry.path()));
-            }
-        }
-        result
-    }
     let fixture = Fixture::new();
     let root = fixture.path().join("audio");
     fs::create_dir_all(root.join("nested")).unwrap();
@@ -528,6 +501,8 @@ fn ipc_fixtures_are_actual_rust_serializations_and_requests_reject_extra_paths()
     let fixture: Value =
         serde_json::from_str(include_str!("../../src/lib/fixtures/ipc.json")).unwrap();
     let asset = AudioAsset {
+        favorite: false,
+        tags: Vec::new(),
         id: "asset-fixture".into(),
         name: "kick.WAV".into(),
         duration_seconds: None,
@@ -545,6 +520,8 @@ fn ipc_fixtures_are_actual_rust_serializations_and_requests_reject_extra_paths()
     );
     assert_eq!(
         to_value(AudioAsset {
+            favorite: false,
+            tags: Vec::new(),
             availability: Availability::Inaccessible,
             ..asset
         })
@@ -582,6 +559,8 @@ fn ipc_fixtures_are_actual_rust_serializations_and_requests_reject_extra_paths()
         to_value(AssetPage {
             scan_id: Some("scan-fixture".into()),
             assets: vec![AudioAsset {
+                favorite: false,
+                tags: Vec::new(),
                 id: "asset-fixture".into(),
                 name: "kick.WAV".into(),
                 duration_seconds: None,
@@ -624,6 +603,8 @@ fn ipc_fixtures_are_actual_rust_serializations_and_requests_reject_extra_paths()
     ] {
         assert_eq!(
             to_value(AudioAsset {
+                favorite: false,
+                tags: Vec::new(),
                 id: "asset-fixture".into(),
                 name: "kick.WAV".into(),
                 duration_seconds: None,
@@ -675,6 +656,7 @@ fn ipc_fixtures_are_actual_rust_serializations_and_requests_reject_extra_paths()
         ErrorCode::InternalError,
         ErrorCode::DatabaseError,
         ErrorCode::NotFound,
+        ErrorCode::DuplicateTag,
     ]
     .into_iter()
     .zip(fixture["errorCodes"].as_array().unwrap())
@@ -759,6 +741,8 @@ fn query(
     lock(&state.database)
         .unwrap()
         .query(&AssetQuery {
+            tag_ids: Vec::new(),
+            favorites_only: false,
             library_id: id.into(),
             search: search.into(),
             offset,
@@ -801,17 +785,21 @@ fn restart_preserves_index_ids_metadata_and_requires_picker_reauthorization() {
     scan(&library);
     assert_eq!(first.assets, query(&state, &info.id, "", 0, 100).assets);
     assert_eq!(first.total, 3);
-    // Prepare future annotations directly in the fixture DB: reconciliation must retain them.
+    // Use the same metadata operations exposed by IPC; filesystem authority is unnecessary.
+    {
+        let mut database = library::lock(&state.database).unwrap();
+        let tag = database.create_tag("Fixture").unwrap();
+        for asset in &first.assets {
+            database
+                .set_asset_favorite(&info.id, &asset.id, true)
+                .unwrap();
+            database
+                .set_asset_tags(&info.id, &asset.id, std::slice::from_ref(&tag.id))
+                .unwrap();
+        }
+    }
+    let first = query(&state, &info.id, "", 0, 100);
     let connection = rusqlite::Connection::open(&path).unwrap();
-    connection
-        .execute("UPDATE assets SET favorite=1", [])
-        .unwrap();
-    connection
-        .execute("INSERT INTO tags VALUES('tag','fixture','Fixture')", [])
-        .unwrap();
-    connection
-        .execute("INSERT INTO asset_tags SELECT id,'tag' FROM assets", [])
-        .unwrap();
     let paths: Vec<Vec<u8>> = connection
         .prepare("SELECT relative_path FROM assets")
         .unwrap()
@@ -987,6 +975,8 @@ fn literal_search_unicode_and_bounded_stable_pages() {
             lock(&state.database)
                 .unwrap()
                 .query(&AssetQuery {
+                    tag_ids: Vec::new(),
+                    favorites_only: false,
                     library_id: info.id.clone(),
                     search: String::new(),
                     offset,
@@ -999,6 +989,8 @@ fn literal_search_unicode_and_bounded_stable_pages() {
         lock(&state.database)
             .unwrap()
             .query(&AssetQuery {
+                tag_ids: Vec::new(),
+                favorites_only: false,
                 library_id: "/etc".into(),
                 search: "".into(),
                 offset: 0,
@@ -1010,6 +1002,8 @@ fn literal_search_unicode_and_bounded_stable_pages() {
         lock(&state.database)
             .unwrap()
             .query(&AssetQuery {
+                tag_ids: Vec::new(),
+                favorites_only: false,
                 library_id: info.id.clone(),
                 search: "\0".into(),
                 offset: 0,
@@ -1021,6 +1015,8 @@ fn literal_search_unicode_and_bounded_stable_pages() {
         lock(&state.database)
             .unwrap()
             .query(&AssetQuery {
+                tag_ids: Vec::new(),
+                favorites_only: false,
                 library_id: info.id,
                 search: "x".repeat(1025),
                 offset: 0,
@@ -1142,4 +1138,61 @@ fn revoked_worker_cannot_replace_new_scan_status_after_trusted_reselection() {
             .is_err()
     );
     assert_eq!(query(&state, &info.id, "", 0, 100), page);
+}
+
+#[test]
+fn metadata_edits_leave_original_hashes_names_modes_and_timestamps_unchanged() {
+    let fixture = Fixture::new();
+    let root = fixture.path().join("audio");
+    fs::create_dir_all(root.join("nested")).unwrap();
+    fs::write(root.join("nested/雨%_.wav"), b"synthetic original audio").unwrap();
+    let before = snapshot(&root);
+    let (state, library) = selected_library(&fixture);
+    scan(&library);
+    let asset = query(&state, &library.info.id, "", 0, 100).assets.remove(0);
+    {
+        let mut db = library::lock(&state.database).unwrap();
+        let tag = db.create_tag(" 雨%_ ").unwrap();
+        db.set_asset_tags(&library.info.id, &asset.id, std::slice::from_ref(&tag.id))
+            .unwrap();
+        db.set_asset_favorite(&library.info.id, &asset.id, true)
+            .unwrap();
+        db.rename_tag(&tag.id, "Rain").unwrap();
+        db.set_asset_tags(&library.info.id, &asset.id, &[]).unwrap();
+        db.delete_tag(&tag.id).unwrap();
+        db.set_asset_favorite(&library.info.id, &asset.id, false)
+            .unwrap();
+    }
+    scan(&library);
+    assert_eq!(before, snapshot(&root));
+}
+
+fn snapshot(
+    root: &std::path::Path,
+) -> std::collections::BTreeMap<std::path::PathBuf, (Vec<u8>, u32, i64, i64)> {
+    use sha2::{Digest, Sha256};
+    use std::os::unix::fs::MetadataExt;
+    let mut result = std::collections::BTreeMap::new();
+    for entry in fs::read_dir(root).unwrap() {
+        let entry = entry.unwrap();
+        let metadata = entry.metadata().unwrap();
+        let hash = if metadata.is_file() {
+            Sha256::digest(fs::read(entry.path()).unwrap()).to_vec()
+        } else {
+            vec![]
+        };
+        result.insert(
+            entry.path(),
+            (
+                hash,
+                metadata.mode(),
+                metadata.mtime(),
+                metadata.mtime_nsec(),
+            ),
+        );
+        if metadata.is_dir() {
+            result.extend(snapshot(&entry.path()));
+        }
+    }
+    result
 }

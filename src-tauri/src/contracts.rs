@@ -9,6 +9,8 @@ pub struct AudioAsset {
     pub relative_display_path: String,
     pub extension: String,
     pub availability: Availability,
+    pub favorite: bool,
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -30,6 +32,7 @@ pub enum ErrorCode {
     InternalError,
     DatabaseError,
     NotFound,
+    DuplicateTag,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -122,6 +125,8 @@ pub struct AssetList {
 pub struct AssetQuery {
     pub library_id: String,
     pub search: String,
+    pub tag_ids: Vec<String>,
+    pub favorites_only: bool,
     pub offset: u32,
     pub limit: u32,
 }
@@ -154,4 +159,46 @@ pub struct PlaybackRequest {
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackSource {
     pub url: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tag {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreateTagRequest {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RenameTagRequest {
+    pub tag_id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeleteTagRequest {
+    pub tag_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetAssetTagsRequest {
+    pub library_id: String,
+    pub asset_id: String,
+    pub tag_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SetAssetFavoriteRequest {
+    pub library_id: String,
+    pub asset_id: String,
+    pub favorite: bool,
 }

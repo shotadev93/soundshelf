@@ -4,6 +4,8 @@ export interface AudioAsset {
   durationSeconds: number | null;
   relativeDisplayPath: string;
   extension: string;
+  favorite: boolean;
+  tags: Tag[];
   availability: "available" | "inaccessible" | "missing" | "unknown";
 }
 
@@ -13,7 +15,7 @@ export interface LibraryInfo {
 }
 
 export interface AppError {
-  code: "notAuthorized" | "unavailable" | "invalidInput" | "busy" | "internalError" | "databaseError" | "notFound";
+  code: "notAuthorized" | "unavailable" | "invalidInput" | "busy" | "internalError" | "databaseError" | "notFound" | "duplicateTag";
   message: string;
 }
 
@@ -40,6 +42,8 @@ export interface AssetList {
 
 export interface AssetQuery extends LibraryRequest {
   search: string;
+  tagIds: string[];
+  favoritesOnly: boolean;
   offset: number;
   limit: number;
 }
@@ -62,3 +66,10 @@ export interface PlaybackRequest extends LibraryRequest {
 export interface PlaybackSource {
   url: string;
 }
+
+export interface Tag { id: string; name: string }
+export interface CreateTagRequest { name: string }
+export interface RenameTagRequest { tagId: string; name: string }
+export interface DeleteTagRequest { tagId: string }
+export interface SetAssetTagsRequest extends PlaybackRequest { tagIds: string[] }
+export interface SetAssetFavoriteRequest extends PlaybackRequest { favorite: boolean }

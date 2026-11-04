@@ -2,13 +2,21 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "allow-select-directory",
     "allow-scan-library",
     "allow-get-scan-status",
     "allow-list-assets",
     "allow-list-libraries",
-    "allow-prepare-playback"
+    "allow-prepare-playback",
+    "allow-list-tags",
+    "allow-create-tag",
+    "allow-rename-tag",
+    "allow-delete-tag",
+    "allow-set-asset-tags",
+    "allow-set-asset-favorite"
   ]
 }

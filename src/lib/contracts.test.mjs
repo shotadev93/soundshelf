@@ -8,6 +8,7 @@ test("real IPC fixtures match the checked TypeScript boundary", () => {
   assert.deepEqual(parseLibrary(fixture.library), fixture.library);
   assert.equal(parseLibrary(fixture.cancellation), null);
   assert.deepEqual(parseAssets(fixture.assets), fixture.assets);
+  assert.deepEqual(parseAsset(fixture.annotatedAsset), fixture.annotatedAsset);
   for (const key of ["inaccessible", "missing", "unknown"]) assert.deepEqual(parseAsset(fixture[key]), fixture[key]);
   for (const key of ["page", "emptyPage"]) assert.deepEqual(parsePage(fixture[key]), fixture[key]);
   assert.deepEqual(parseLibraries(fixture.savedLibraries), fixture.savedLibraries);
@@ -40,5 +41,15 @@ test("playback IPC accepts only the scoped opaque URL", () => {
   assert.deepEqual(parsePlayback(fixture.playbackSource), fixture.playbackSource);
   for (const url of ["file:///etc/passwd", "https://example.com/audio.wav", "soundshelf-audio://localhost/../../etc/passwd", fixture.playbackSource.url + "?path=secret", fixture.playbackSource.url.replace("127.0.0.1", "example.com"), fixture.playbackSource.url.replace("43123", "65536"), fixture.playbackSource.url.replace("43123", "0"), "soundshelf-audio://localhost/0123456789abcdef0123456789abcdef"]) {
     assert.throws(() => parsePlayback({ url }));
+  }
+});
+
+test("annotation IPC rejects malformed tags and favorite flags", async () => {
+  const { parseTag, parseTags } = await import("./contracts.ts");
+  assert.deepEqual(parseTag(fixture.tag), fixture.tag);
+  assert.deepEqual(parseTags([fixture.tag]), [fixture.tag]);
+  for (const value of [null, {}, { id: 3, name: "雨" }, { id: "id", name: null }]) assert.throws(() => parseTag(value));
+  for (const patch of [{ favorite: "true" }, { favorite: undefined }, { tags: null }, { tags: [{}] }]) {
+    assert.throws(() => parseAsset({ ...fixture.page.assets[0], ...patch }));
   }
 });

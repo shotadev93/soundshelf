@@ -38,6 +38,8 @@ pub(crate) fn fixture() -> (Fixture, LibraryState, LibraryInfo, PlaybackRequest)
     let page = lock(&state.database)
         .unwrap()
         .query(&AssetQuery {
+            tag_ids: Vec::new(),
+            favorites_only: false,
             library_id: info.id.clone(),
             search: String::new(),
             offset: 0,

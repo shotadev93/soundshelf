@@ -1,6 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { LibraryController } from "./lib/library-controller";
 import { libraryApi } from "./lib/ipc";
+import { TagEditor } from "./components/TagEditor";
+import { AssetMetadata } from "./components/AssetMetadata";
 import { AudioPlayer } from "./components/AudioPlayer";
 import type { PlaybackSelection } from "./lib/playback-controller";
 import "./App.css";
@@ -61,21 +63,30 @@ function App() {
           {status.warningCount > status.warnings.length && <p>Only the first {status.warnings.length} warnings are shown.</p>}
         </section>
       )}
+      <TagEditor controller={controller} view={view} />
       <AudioPlayer libraryId={library?.id} active={active} selection={playbackSelection} />
       <section aria-labelledby="assets-heading" aria-busy={scanning || loading}>
         <h2 id="assets-heading">Audio library</h2>
         {!library && !loading && <p>Select an audio directory to begin.</p>}
         {library && <form className="search" onSubmit={(event) => { event.preventDefault(); void controller.search(search); }}>
-          <label htmlFor="asset-search">Search filenames and paths</label>
+          <label htmlFor="asset-search">Search filenames, paths and tags</label>
           <input id="asset-search" type="search" maxLength={1024} value={search} onChange={(event) => setSearch(event.target.value)} aria-describedby="search-help" />
           <button type="submit">Search</button>
           <button type="button" onClick={() => { setSearch(""); void controller.search(""); }}>Clear</button>
           <small id="search-help">Literal substring matching; %, _ and \ are ordinary characters. ASCII case-insensitive; full Unicode case folding is unavailable.</small>
         </form>}
+        {library && <fieldset className="filters"><legend>Asset filters</legend>
+          <label><input type="checkbox" checked={view.favoritesOnly} onChange={(event) => { void controller.filter(view.tagIds, event.target.checked); }} />Favorites only</label>
+          <p>Include all selected tags (up to 32):</p>
+          {view.tags.map((tag) => <label className="tag-choice" key={tag.id}><input type="checkbox" checked={view.tagIds.includes(tag.id)}
+            disabled={!view.tagIds.includes(tag.id) && view.tagIds.length >= 32}
+            onChange={(event) => { void controller.filter(event.target.checked ? [...view.tagIds, tag.id] : view.tagIds.filter((id) => id !== tag.id), view.favoritesOnly); }} />{tag.name}</label>)}
+          <button type="button" onClick={() => { void controller.filter([], false); }}>Clear filters</button>
+        </fieldset>}
         <div role="status" aria-live="polite" aria-atomic="true">
           {loading && <p>Loading stored results…</p>}
           {library && !loading && !error && <p>{view.total} stored {view.total === 1 ? "asset" : "assets"}{view.search ? ` matching “${view.search}”` : ""}.</p>}
-          {library && !loading && !error && assets.length === 0 && <p>{view.search ? "No assets match this search." : "No indexed audio files. Authorize the directory and start a scan."}</p>}
+          {library && !loading && !error && assets.length === 0 && <p>{(view.search || view.favoritesOnly || view.tagIds.length > 0) ? "No assets match this search and filters." : "No indexed audio files. Authorize the directory and start a scan."}</p>}
         </div>
         {assets.length > 0 && <>
           <p>Availability reflects the last observation; partial or failed scans preserve earlier states for unseen files. Extensions do not guarantee playable audio.{scanning ? " Previous results are shown while scanning." : ""}</p>
@@ -86,6 +97,7 @@ function App() {
             <button type="button" disabled={!active || !library} aria-label={`Play ${asset.name}`} onClick={() => {
               if (library) setPlaybackSelection({ libraryId: library.id, assetId: asset.id, name: asset.name });
             }}>Play</button>
+            <AssetMetadata asset={asset} tags={view.tags} disabled={view.metadataBusy || view.tagsLoading || loading} controller={controller} />
           </li>)}</ul>
         </>}
         {library && <nav className="pagination" aria-label="Asset pages">

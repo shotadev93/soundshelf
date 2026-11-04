@@ -247,6 +247,8 @@ impl<F: FnMut(&Path, ScanPoint)> Discovery<'_, F> {
                 modified_seconds: std::os::unix::fs::MetadataExt::mtime(&metadata).to_string(),
                 modified_nanoseconds: std::os::unix::fs::MetadataExt::mtime_nsec(&metadata) as u32,
                 asset: AudioAsset {
+                    favorite: false,
+                    tags: Vec::new(),
                     id,
                     name: path
                         .file_name()

@@ -7,6 +7,12 @@ fn main() {
             "list_assets",
             "list_libraries",
             "prepare_playback",
+            "list_tags",
+            "create_tag",
+            "rename_tag",
+            "delete_tag",
+            "set_asset_tags",
+            "set_asset_favorite",
         ]),
     ))
     .expect("failed to build Tauri command permissions")

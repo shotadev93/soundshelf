@@ -299,6 +299,8 @@ mod native_tests {
         let assets = crate::library::lock(&state.database)
             .unwrap()
             .query(&crate::contracts::AssetQuery {
+                tag_ids: Vec::new(),
+                favorites_only: false,
                 library_id: info.id.clone(),
                 search: String::new(),
                 offset: 0,

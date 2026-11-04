@@ -1,4 +1,4 @@
-import type { AppError, AssetList, AssetPage, AudioAsset, LibraryInfo, PlaybackSource, SavedLibrary, ScanPhase, ScanStatus } from "./types.ts";
+import type { AppError, AssetList, AssetPage, AudioAsset, LibraryInfo, PlaybackSource, SavedLibrary, ScanPhase, ScanStatus, Tag } from "./types.ts";
 
 function invalid(): never {
   throw new Error("SoundShelf returned an invalid IPC response.");
@@ -32,7 +32,7 @@ function array(value: unknown): unknown[] {
 export function parseError(value: unknown): AppError {
   const data = record(value);
   const code = data.code;
-  if (code !== "notAuthorized" && code !== "unavailable" && code !== "invalidInput" && code !== "busy" && code !== "internalError" && code !== "databaseError" && code !== "notFound") return invalid();
+  if (code !== "notAuthorized" && code !== "unavailable" && code !== "invalidInput" && code !== "busy" && code !== "internalError" && code !== "databaseError" && code !== "notFound" && code !== "duplicateTag") return invalid();
   return { code, message: text(data.message) };
 }
 
@@ -58,6 +58,7 @@ export function parseAsset(value: unknown): AudioAsset {
   if (duration !== null && (typeof duration !== "number" || !Number.isFinite(duration) || duration < 0)) return invalid();
   return {
     id: text(data.id), name: text(data.name), relativeDisplayPath: text(data.relativeDisplayPath),
+    favorite: boolean(data.favorite), tags: parseTags(data.tags),
     durationSeconds: duration, extension: text(data.extension), availability,
   };
 }
@@ -109,4 +110,15 @@ export function parsePlayback(value: unknown): PlaybackSource {
   if (!/^http:\/\/127\.0\.0\.1:([1-9][0-9]{0,4})\/audio\/[a-f0-9]{32}$/.test(url)) return invalid();
   if (Number(new URL(url).port) > 65535) return invalid();
   return { url };
+}
+
+function boolean(value: unknown): boolean {
+  return typeof value === "boolean" ? value : invalid();
+}
+export function parseTag(value: unknown): Tag {
+  const data = record(value);
+  return { id: text(data.id), name: text(data.name) };
+}
+export function parseTags(value: unknown): Tag[] {
+  return array(value).map(parseTag);
 }

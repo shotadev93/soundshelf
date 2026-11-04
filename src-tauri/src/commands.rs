@@ -224,3 +224,98 @@ pub(crate) async fn prepare_playback(
         .map_err(|_| AppError::unavailable("Playback preparation failed."))??;
     Ok(endpoint.source(source))
 }
+
+#[tauri::command]
+pub(crate) async fn list_tags(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+) -> Result<Vec<crate::contracts::Tag>, AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || crate::library::lock(&state.database)?.tags())
+        .await
+        .map_err(|_| AppError::unavailable("Metadata operation failed."))?
+}
+
+#[tauri::command]
+pub(crate) async fn create_tag(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+    request: crate::contracts::CreateTagRequest,
+) -> Result<crate::contracts::Tag, AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::library::lock(&state.database)?.create_tag(&request.name)
+    })
+    .await
+    .map_err(|_| AppError::unavailable("Metadata operation failed."))?
+}
+
+#[tauri::command]
+pub(crate) async fn rename_tag(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+    request: crate::contracts::RenameTagRequest,
+) -> Result<crate::contracts::Tag, AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::library::lock(&state.database)?.rename_tag(&request.tag_id, &request.name)
+    })
+    .await
+    .map_err(|_| AppError::unavailable("Metadata operation failed."))?
+}
+
+#[tauri::command]
+pub(crate) async fn delete_tag(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+    request: crate::contracts::DeleteTagRequest,
+) -> Result<(), AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::library::lock(&state.database)?.delete_tag(&request.tag_id)
+    })
+    .await
+    .map_err(|_| AppError::unavailable("Metadata operation failed."))?
+}
+
+#[tauri::command]
+pub(crate) async fn set_asset_tags(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+    request: crate::contracts::SetAssetTagsRequest,
+) -> Result<(), AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::library::lock(&state.database)?.set_asset_tags(
+            &request.library_id,
+            &request.asset_id,
+            &request.tag_ids,
+        )
+    })
+    .await
+    .map_err(|_| AppError::unavailable("Metadata operation failed."))?
+}
+
+#[tauri::command]
+pub(crate) async fn set_asset_favorite(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<LibraryState>>,
+    request: crate::contracts::SetAssetFavoriteRequest,
+) -> Result<(), AppError> {
+    check_window(&window)?;
+    let state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::library::lock(&state.database)?.set_asset_favorite(
+            &request.library_id,
+            &request.asset_id,
+            request.favorite,
+        )
+    })
+    .await
+    .map_err(|_| AppError::unavailable("Metadata operation failed."))?
+}

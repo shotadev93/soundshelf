@@ -105,3 +105,13 @@ input:focus-visible, select:focus-visible { outline: 3px solid #747bff; outline-
   .audio-player { border-color: #96a6ba; }
   .audio-player input[type="range"] { accent-color: #9bc5ff; }
 }
+
+.tag-editor, .filters { margin-block: 1rem; text-align: left; }
+.tag-editor form { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.tag-editor li { margin-block: .5rem; overflow-wrap: anywhere; }
+.tag-choice { display: inline-flex; align-items: center; gap: .4rem; margin: .4rem .8rem .4rem 0; overflow-wrap: anywhere; }
+.asset-metadata { width: 100%; }
+.asset-metadata p { margin-block: .5rem; overflow-wrap: anywhere; }
+.asset-metadata summary { cursor: pointer; overflow-wrap: anywhere; }
+input[type="checkbox"] { width: 1.2rem; height: 1.2rem; }
+summary:focus-visible, input:focus-visible { outline: 3px solid #747bff; outline-offset: 3px; }

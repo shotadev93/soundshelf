@@ -34,7 +34,13 @@ pub fn run() {
             commands::get_scan_status,
             commands::list_assets,
             commands::list_libraries,
-            commands::prepare_playback
+            commands::prepare_playback,
+            commands::list_tags,
+            commands::create_tag,
+            commands::rename_tag,
+            commands::delete_tag,
+            commands::set_asset_tags,
+            commands::set_asset_favorite,
         ])
         .run(tauri::generate_context!());
     if result.is_err() {

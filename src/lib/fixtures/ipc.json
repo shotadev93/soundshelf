@@ -16,7 +16,9 @@
         "durationSeconds": null,
         "relativeDisplayPath": "drums/kick.WAV",
         "extension": "wav",
-        "availability": "available"
+        "availability": "available",
+        "favorite": false,
+        "tags": []
       }
     ]
   },
@@ -26,7 +28,9 @@
     "durationSeconds": null,
     "relativeDisplayPath": "drums/kick.WAV",
     "extension": "wav",
-    "availability": "inaccessible"
+    "availability": "inaccessible",
+    "favorite": false,
+    "tags": []
   },
   "idle": {
     "scanId": null,
@@ -92,7 +96,8 @@
     "busy",
     "internalError",
     "databaseError",
-    "notFound"
+    "notFound",
+    "duplicateTag"
   ],
   "page": {
     "scanId": "scan-fixture",
@@ -103,7 +108,9 @@
         "durationSeconds": null,
         "relativeDisplayPath": "drums/kick.WAV",
         "extension": "wav",
-        "availability": "available"
+        "availability": "available",
+        "favorite": false,
+        "tags": []
       }
     ],
     "total": 1,
@@ -114,7 +121,9 @@
     "libraryId": "library-fixture",
     "search": "kick%_'日本語",
     "offset": 0,
-    "limit": 50
+    "limit": 50,
+    "tagIds": [],
+    "favoritesOnly": false
   },
   "savedLibraries": [
     {
@@ -131,7 +140,9 @@
     "durationSeconds": null,
     "relativeDisplayPath": "drums/kick.WAV",
     "extension": "wav",
-    "availability": "missing"
+    "availability": "missing",
+    "favorite": false,
+    "tags": []
   },
   "unknown": {
     "id": "asset-fixture",
@@ -139,7 +150,9 @@
     "durationSeconds": null,
     "relativeDisplayPath": "drums/kick.WAV",
     "extension": "wav",
-    "availability": "unknown"
+    "availability": "unknown",
+    "favorite": false,
+    "tags": []
   },
   "emptyPage": {
     "scanId": null,
@@ -154,5 +167,46 @@
   },
   "playbackSource": {
     "url": "http://127.0.0.1:43123/audio/0123456789abcdef0123456789abcdef"
+  },
+  "tag": {
+    "id": "tag-fixture",
+    "name": "雨"
+  },
+  "createTagRequest": {
+    "name": " 雨 "
+  },
+  "renameTagRequest": {
+    "tagId": "tag-fixture",
+    "name": "Rain"
+  },
+  "deleteTagRequest": {
+    "tagId": "tag-fixture"
+  },
+  "setAssetTagsRequest": {
+    "libraryId": "library-fixture",
+    "assetId": "asset-fixture",
+    "tagIds": [
+      "tag-fixture"
+    ]
+  },
+  "setAssetFavoriteRequest": {
+    "libraryId": "library-fixture",
+    "assetId": "asset-fixture",
+    "favorite": true
+  },
+  "annotatedAsset": {
+    "id": "asset-fixture",
+    "name": "kick.WAV",
+    "durationSeconds": null,
+    "relativeDisplayPath": "drums/kick.WAV",
+    "extension": "wav",
+    "availability": "available",
+    "favorite": true,
+    "tags": [
+      {
+        "id": "tag-fixture",
+        "name": "雨"
+      }
+    ]
   }
 }

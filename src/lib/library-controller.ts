@@ -1,6 +1,6 @@
 import { toAppError } from "./contracts.ts";
 import type { LibraryApi } from "./ipc.ts";
-import type { AppError, AudioAsset, LibraryInfo, SavedLibrary, ScanStatus } from "./types.ts";
+import type { AppError, AudioAsset, LibraryInfo, SavedLibrary, ScanStatus, Tag } from "./types.ts";
 
 const PAGE_SIZE = 50;
 
@@ -14,6 +14,13 @@ export interface LibraryView {
   scanning: boolean;
   loading: boolean;
   search: string;
+  tagIds: string[];
+  favoritesOnly: boolean;
+  tags: Tag[];
+  tagsLoading: boolean;
+  metadataBusy: boolean;
+  metadataError: AppError | null;
+  metadataStatus: string;
   offset: number;
   total: number;
   pageSize: number;
@@ -26,12 +33,15 @@ export class LibraryController {
   private interval: number;
   private version = 0;
   private queryVersion = 0;
+  private tagsVersion = 0;
+  private metadataVersion = 0;
   private selectionVersion = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<() => void>();
   private view: LibraryView = {
     library: null, libraries: [], active: false, assets: [], status: null,
     selecting: false, scanning: false, loading: false, search: "", offset: 0,
+    tagIds: [], favoritesOnly: false, tags: [], tagsLoading: false, metadataBusy: false, metadataError: null, metadataStatus: "",
     total: 0, pageSize: PAGE_SIZE, error: null,
   };
 
@@ -55,11 +65,14 @@ export class LibraryController {
     this.version += 1;
     this.queryVersion += 1;
     this.selectionVersion += 1;
+    this.tagsVersion += 1;
+    this.metadataVersion += 1;
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
   };
 
   async initialize() {
+    void this.loadTags();
     const version = this.version;
     this.update({ loading: true, error: null });
     try {
@@ -77,7 +90,7 @@ export class LibraryController {
     this.queryVersion += 1;
     if (this.timer !== null) clearTimeout(this.timer);
     this.update({ library: saved.library, active: saved.active, assets: [], status: null,
-      search: "", offset: 0, total: 0, scanning: saved.active, error: null });
+      search: "", tagIds: [], favoritesOnly: false, metadataStatus: "", offset: 0, total: 0, scanning: saved.active, error: null });
     if (saved.active) await this.poll(this.version, saved.library.id, null);
     else await this.load();
   }
@@ -106,6 +119,65 @@ export class LibraryController {
     await this.load();
   }
 
+  async filter(tagIds: string[], favoritesOnly: boolean) {
+    this.update({ tagIds, favoritesOnly, offset: 0, assets: [], total: 0 });
+    await this.load();
+  }
+
+  async loadTags() {
+    const generation = ++this.tagsVersion;
+    this.update({ tagsLoading: true, metadataError: null });
+    try {
+      const tags = await this.api.listTags();
+      if (generation !== this.tagsVersion) return;
+      this.update({ tags, tagsLoading: false });
+    } catch (error) {
+      if (generation === this.tagsVersion) this.update({ tagsLoading: false, metadataError: toAppError(error) });
+    }
+  }
+
+  private async mutate(operation: () => Promise<unknown>, message: string, tagsChanged = false, libraryId?: string, deletedTagId?: string) {
+    if (this.view.metadataBusy) return;
+    const generation = ++this.metadataVersion;
+    this.queryVersion += 1;
+    this.update({ metadataBusy: true, metadataError: null, metadataStatus: "Saving metadata…", loading: false });
+    try {
+      await operation();
+      if (generation !== this.metadataVersion) return;
+      if (deletedTagId) this.update({ tagIds: this.view.tagIds.filter((id) => id !== deletedTagId), offset: 0 });
+      if (tagsChanged) await this.loadTags();
+      if (generation !== this.metadataVersion) return;
+      this.update({ metadataStatus: !libraryId || libraryId === this.view.library?.id ? message : "" });
+      await this.load();
+    } catch (error) {
+      if (generation === this.metadataVersion && (!libraryId || libraryId === this.view.library?.id)) {
+        this.update({ metadataError: toAppError(error), metadataStatus: "" });
+      }
+    } finally {
+      if (generation === this.metadataVersion) this.update({ metadataBusy: false });
+    }
+  }
+
+  createTag(name: string) {
+    return this.mutate(() => this.api.createTag({ name }), "Tag created.", true);
+  }
+  renameTag(tagId: string, name: string) {
+    return this.mutate(() => this.api.renameTag({ tagId, name }), "Tag renamed.", true);
+  }
+  deleteTag(tagId: string) {
+    return this.mutate(() => this.api.deleteTag({ tagId }), "Tag deleted from all assets.", true, undefined, tagId);
+  }
+  setTags(assetId: string, tagIds: string[]) {
+    const libraryId = this.view.library?.id;
+    if (!libraryId) return Promise.resolve();
+    return this.mutate(() => this.api.setAssetTags({ libraryId, assetId, tagIds }), "Asset tags saved.", false, libraryId);
+  }
+  setFavorite(assetId: string, favorite: boolean) {
+    const libraryId = this.view.library?.id;
+    if (!libraryId) return Promise.resolve();
+    return this.mutate(() => this.api.setAssetFavorite({ libraryId, assetId, favorite }), favorite ? "Added to favorites." : "Removed from favorites.", false, libraryId);
+  }
+
   async page(offset: number) {
     if (offset < 0 || offset > 1_000_000 || !Number.isSafeInteger(offset)) return;
     this.update({ offset, assets: [] });
@@ -119,7 +191,7 @@ export class LibraryController {
     if (!library) return;
     const query = ++this.queryVersion;
     const version = this.version;
-    const request = { libraryId: library.id, search: this.view.search, offset: this.view.offset, limit: PAGE_SIZE };
+    const request = { libraryId: library.id, search: this.view.search, tagIds: this.view.tagIds, favoritesOnly: this.view.favoritesOnly, offset: this.view.offset, limit: PAGE_SIZE };
     this.update({ loading: true, error: null });
     try {
       const result = await this.api.listAssets(request);
