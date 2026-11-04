@@ -1,6 +1,8 @@
 # Tags, favorites, and MVP implementation
 
-Milestone 4 implements the remaining MVP features: persistent tag management, asset annotations, combined search/filtering, and accessible editing controls. Automated verification and the real WebKitGTK playback regression pass. Full development/bundled application GUI acceptance, keyboard/screen-reader interaction, and audible playback still require the manual checks below. This is an implementation completion record, not a claim that all native acceptance gates have passed.
+Milestones 1–4 are implemented, completing the planned MVP feature scope. Milestone 4 adds persistent tag management, asset annotations, combined search/filtering, and accessible editing controls. The recorded automated verification and real WebKitGTK playback regression pass. The user reports that all nine items in their Milestone 4 Linux GUI checklist passed (9/9), as recorded below. These are user-reported results, separate from the automated verification; the GUI test environment and separate development/bundled run results have not been supplied. The acceptance evidence and remaining recording gaps are summarized below.
+
+The documentation review baseline is checkpoint `3ac9faa` (`feat: implement SoundShelf milestone 4 features`). Earlier milestone documents and the architecture plan retain implementation-time pending/planned wording; this record supplies the current overall MVP status. No application code, dependencies or tests were changed or rerun for this documentation update.
 
 ## 4A — Tag management
 
@@ -76,22 +78,55 @@ New files: `src/components/{TagEditor,AssetMetadata}.tsx`, six generated tag/ann
 
 No new security issue was identified within the tested scope. Existing host-filesystem and playback capability limits still apply as documented in Milestones 1–3; this is not a general security audit.
 
+## MVP acceptance evidence
+
+The Milestone 4 acceptance criteria in `docs/PLAN.md` are reviewed below. Existing automated results remain implementation-time evidence; the user's latest report adds nine itemized Linux GUI checks, all reported passed. An absent record is not a failed test.
+
+| Acceptance criterion | Recorded evidence | Evidence still not individually recorded |
+| --- | --- | --- |
+| Tags and favorites persist after restart and remain attached to unavailable assets | Rust restart/rescan and missing/inaccessible-record tests described above; user reports persistence after rescan/restart and normal operation with deleted audio | GUI confirmation of annotations on unavailable records and picker reauthorization, tied to a specific build/environment |
+| Validation/normalization prevent duplicate associations; updates are transactional and parameterized | Rust validation, duplicate, SQL-input and trigger-induced rollback tests; code inspection | Individual GUI boundary-input and database-error recovery results |
+| Tag search and favorite filtering combine with search and pagination | Rust query tests and frontend controller tests; user reports tag search, favorite filtering and combined search/filter/page navigation passed | Rapid-change races and last-page recovery in the native GUI |
+| Metadata edits preserve original bytes and create no sidecars | Automated SHA-256, directory-entry, mode and nanosecond-mtime snapshots using disposable fixtures | A manual before/after integrity comparison and its retained output |
+| Keyboard-only selection, browsing, metadata editing and playback; clean-install flow through restart and reauthorization | Accessible controls and controller tests; muted native WebKit playback regression; user reports WAV/MP3/OGG playback, keyboard operation and light/dark themes passed | Separate development/bundled and clean-install results, the complete keyboard-only flow, screen-reader observations, explicit audible-output confirmation and picker reauthorization |
+| Final capability/CSP review excludes broad filesystem access, remote content, telemetry and accounts | Recorded configuration/source review and retained authorization/containment regressions | Itemized production GUI IPC/CSP observations; no independent security audit is recorded or implied |
+
+**Current status:** the MVP implementation is complete, with all nine user-supplied Milestone 4 GUI checks reported passed. Automated evidence is recorded above. User-supplied screenshots of the player and favorites/tag view are available in the [README](../README.md#screenshots). Remaining recording gaps are runtime versions, tested build modes, fixtures, test logs, and the specific acceptance cases listed in the table. The nine reported checks do not imply that every subcase in the more detailed reference procedure below was exercised. Historical Milestone 1–3 acceptance items are covered only to the extent explicitly included in the report.
+
 ## Manual Linux GUI acceptance
 
-Run every step with development and the built executable, using only disposable media and separate isolated application-data directories. These steps remain **pending** for Milestone 4.
+### User-reported results — 9/9 passed
+
+The user supplied the following completed checklist. Each checked item records a user-reported pass; these GUI checks were not independently performed by the coding agent. The report does not specify the test date, runtime versions, exact tested build or whether development and bundled modes were both exercised.
+
+- [x] Tags can be created, renamed and deleted.
+- [x] Tags can be assigned to and removed from audio assets.
+- [x] Assets can be added to and removed from favorites.
+- [x] Tag search and favorites-only filtering work.
+- [x] Search, filters and page navigation work together.
+- [x] Tags and favorites persist after rescanning and restarting the application.
+- [x] The application continues to operate normally with corrupt files or deleted audio files.
+- [x] WAV, MP3 and OGG playback continues to work normally.
+- [x] Keyboard operation and light/dark themes work normally.
+
+The report confirms these functional outcomes. It does not add manual file-integrity snapshots, database-error injection results, screen-reader results or an independent security audit. Existing automated results and known limitations remain unchanged.
+
+### Detailed reference procedure
+
+The retained checklist below is a reproducible procedure and a template for recording additional acceptance detail; its numbered steps are distinct from the nine reported results above and are not individually marked passed. It does not require repeating the completed checks. Record which steps were exercised, the checkpoint, Linux/WebKit/GStreamer versions, development versus bundled mode, and any exceptions when that information becomes available. Use disposable media and isolated application-data directories for any follow-up checks.
 
 1. Generate disposable tones with `python3 scripts/create-playback-fixtures.py`; include a separate set of more than 50 candidates for pagination. Record a hash/name/mode/mtime baseline outside the audio root. Start development with an isolated `XDG_DATA_HOME` as described in Milestone 3. Confirm empty states, picker cancellation, selection, scanning, search and playback.
 2. Create tags such as `Rain`, `雨`, `100%`, `under_score`, a quote/backslash name, and a 64-character name. Test blank/whitespace-only input, internal control characters, 65 characters, and a duplicate differing only by case. Verify clear errors and recovery. Rename a tag, including a case-only change; its assignments must stay attached. Delete an assigned tag and check that it disappears from every asset.
 3. Use favorite/unfavorite and assign/remove multiple tags, including while audio is playing. The player must continue. Search by tag, filename and path, including literal wildcards. Combine favorite-only and two selected tags: both tags must be present. Browse pages, remove a favorite/tag from the last matching page, clear filters and confirm deterministic counts and usable pagination.
-4. Close and restart with the same test data directory. Confirm tags/favorites and filtered results survive. Saved roots must be inactive. Search/filter and metadata editing must work while Play and scans require native picker reselection. Reselect and rescan; annotations and IDs must persist.
+4. Close and restart with the same test data directory. Confirm tags/favorites persist and can be searched and filtered again; search/filter selections themselves are not persisted. Saved roots must be inactive. Search/filter and metadata editing must work while Play and scans require native picker reselection. Reselect and rescan; annotations and IDs must persist.
 5. Using separate disposable copies, externally remove one file and make another unreadable. Rescan and confirm retained annotations on missing/inaccessible or conservatively preserved historical rows. Restore and rescan. Never interpret a partial/failed scan as deletion. Repeat the malicious symlink/root replacement playback checks in Milestone 3.
 6. Change search, tags, pages and libraries rapidly while results/writes load. Only the latest query may display; writes must not apply to another asset/library. Check loading, no matches, empty tags, invalid input and recovery. Test database-error recovery only with an isolated disposable index (for example an injected test-only SQLite trigger); never damage a real index.
 7. Use Tab/Shift+Tab, Enter/Space and native range keys for directory selection, Saved Library, search, filters, tag create/rename/delete, disclosure/assignment controls, favorites, pagination and playback. Check focus visibility, names/pressed/checked states, loading/status/error announcements with a screen reader, narrow windows and long/non-ASCII text. Recheck Saved Library text contrast in light/dark native themes.
 8. Build with the command above, stop Vite, launch `src-tauri/target/debug/soundshelf` with a different isolated `XDG_DATA_HOME`, and repeat the complete select → scan → search → play → annotate → restart → reauthorize flow. Check production CSP/IPC permissions and audible WAV/MP3/OGG playback at low volume. A successful executable build does not establish this acceptance result.
-9. On fresh fixtures without deliberate external mutations, compare hashes, name set, modes and nanosecond mtime with the baseline. No sidecars may appear. Atime is excluded. Record distribution/WebKit/GStreamer versions and dev/bundled results before declaring full GUI acceptance.
+9. On fresh fixtures without deliberate external mutations, compare hashes, name set, modes and nanosecond mtime with the baseline. No sidecars may appear. Atime is excluded. Record distribution/WebKit/GStreamer versions, dev/bundled results and integrity output to substantiate item-level GUI acceptance.
 
 ## Limits and next steps
 
 Tags are global and deletion removes associations across all libraries. No undo, tag merging, full Unicode normalization/case-folded search, filesystem watcher, content identity, move matching, or waveform/analysis feature was added. The index assumes one owning application instance. Queries use ordinary SQLite LIKE and bounded per-page annotation reads; large-library performance has not been benchmarked. Metadata follows paths and filters/search are session UI state rather than persisted preferences.
 
-Prioritize the manual acceptance checklist, record any runtime/accessibility failures, and verify database backup/recovery procedures before expanding scope. Measure real library sizes before considering search/index optimizations. Post-MVP features remain deferred.
+Prioritize recording the environment and any remaining acceptance details for the completed user-reported GUI testing, following up only where evidence is missing or a problem is reported. Record any runtime/accessibility failures and verify database backup/recovery procedures before expanding scope. Measure real library sizes before considering search/index optimizations. Post-MVP features remain deferred.
