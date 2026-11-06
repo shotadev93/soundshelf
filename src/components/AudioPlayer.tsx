@@ -20,13 +20,13 @@ export function AudioPlayer({ libraryId, active, selection }: { libraryId: strin
     if (active && selection && selection.libraryId === libraryId) void controller?.select(selection);
     else controller?.clear();
   }, [controller, libraryId, active, selection]);
-  const ready = view.phase === "playing" || view.phase === "paused";
+  const ready = view.playRequested || view.phase === "paused";
   return <section className="audio-player" aria-labelledby="player-heading">
     <h2 id="player-heading">Audio player</h2>
     <audio ref={audio} preload="metadata" />
     <p className="path">{view.selection?.name ?? "Select an asset to play."}</p>
     <div className="toolbar">
-      <button type="button" disabled={!ready} onClick={() => { void controller?.toggle(); }}>{view.phase === "playing" ? "Pause" : "Play"}</button>
+      <button type="button" disabled={!ready} onClick={() => { void controller?.toggle(); }}>{view.playRequested ? "Pause" : "Play"}</button>
       <button type="button" disabled={!view.selection} onClick={() => controller?.clear()}>Stop</button>
     </div>
     <label htmlFor="playback-seek">Playback position</label>

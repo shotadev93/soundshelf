@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "soundshelf",
+        "title": "SoundShelf",
         "width": 800,
         "height": 600
       }
@@ -24,7 +24,31 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["deb", "appimage"],
+    "category": "Music",
+    "shortDescription": "A local-first Linux desktop audio asset manager",
+    "longDescription": "Organize and preview local audio assets with read-only discovery, search, tags and favorites stored in SQLite.",
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/doc/soundshelf/copyright": "../LICENSE",
+          "/usr/share/doc/soundshelf/THIRD_PARTY_NOTICES.txt": "../THIRD_PARTY_NOTICES.txt",
+          "/usr/share/doc/soundshelf/THIRD_PARTY_LICENSE_REVIEW.md": "../docs/THIRD_PARTY_LICENSE_REVIEW.md",
+          "/usr/share/doc/soundshelf/licenses": "../licenses"
+        },
+        "depends": [
+          "libc6 (>= 2.39)",
+          "libgcc-s1",
+          "libsoup-3.0-0",
+          "gstreamer1.0-plugins-base",
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-libav"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

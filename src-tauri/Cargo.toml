@@ -1,8 +1,11 @@
 [package]
 name = "soundshelf"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+license = "MIT"
+description = "A local-first Linux desktop audio asset manager"
+authors = ["SoundShelf contributors"]
+homepage = "https://github.com/shotadev93/soundshelf"
+repository = "https://github.com/shotadev93/soundshelf"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

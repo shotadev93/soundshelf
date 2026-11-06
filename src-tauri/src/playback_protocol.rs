@@ -213,6 +213,16 @@ mod tests {
             false,
             43123
         ));
+        assert_eq!(
+            allowed_request(
+                Some("127.0.0.1:43123"),
+                Some("http://localhost:1420"),
+                path,
+                false,
+                43123
+            ),
+            cfg!(debug_assertions)
+        );
         for host in [
             None,
             Some("localhost:43123"),
@@ -263,6 +273,23 @@ mod native_tests {
     #[ignore = "requires a desktop session and WebKitGTK media codecs"]
     fn native_webkit_plays_pauses_and_seeks_loopback_audio() {
         gtk::init().expect("GTK desktop session");
+        let controller = std::process::Command::new("node")
+            .arg("scripts/build-playback-test-module.mjs")
+            .current_dir(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .unwrap(),
+            )
+            .output()
+            .expect(
+                "Node and installed frontend dependencies are required for the controller probe",
+            );
+        assert!(
+            controller.status.success(),
+            "controller bundle: {}",
+            String::from_utf8_lossy(&controller.stderr)
+        );
+        let controller = String::from_utf8(controller.stdout).expect("controller JavaScript");
         let (fixture, state, info, _) = crate::playback::playback_tests::fixture();
         let path = fixture.path().join("audio/nested/track.wav");
         // Ten seconds of silence spans several 64 KiB response blocks.
@@ -293,6 +320,13 @@ mod native_tests {
                 .unwrap();
             assert!(status.success(), "generate {extension}");
         }
+        let originals: Vec<_> = ["wav", "mp3", "ogg"]
+            .map(|extension| {
+                let path = path.with_extension(extension);
+                let bytes = std::fs::read(&path).unwrap();
+                (path, bytes)
+            })
+            .into();
         let library = state.get(&info.id).unwrap();
         crate::scan::begin(&library).unwrap();
         crate::scan::execute(&library).unwrap();
@@ -310,7 +344,14 @@ mod native_tests {
             .assets;
         let state = Arc::new(state);
         let (server, endpoint) = start(Arc::clone(&state)).unwrap();
+        assert_eq!(assets.len(), 3, "all three codecs must be exercised");
         for asset in assets {
+            let expected = originals
+                .iter()
+                .find(|(path, _)| path.extension().unwrap() == asset.extension.as_str())
+                .unwrap()
+                .1
+                .clone();
             let source = endpoint.source(
                 state
                     .prepare_playback(crate::contracts::PlaybackRequest {
@@ -319,34 +360,36 @@ mod native_tests {
                     })
                     .unwrap(),
             );
-            if asset.extension == "wav" {
-                exercise_http(endpoint.0, &source.url);
-            }
-            for origin in ["http://localhost:1420", "tauri://localhost"] {
-                exercise_media(&source.url, origin);
+            exercise_http(endpoint.0, &source.url, expected);
+            let origins = if cfg!(debug_assertions) {
+                &["http://localhost:1420", "tauri://localhost"][..]
+            } else {
+                &["tauri://localhost"][..]
+            };
+            for origin in origins {
+                println!("checking {} from {origin}", asset.extension);
+                exercise_media(&source.url, origin, &controller);
                 println!(
                     "{}: play, pause, resume and seek passed from {origin}",
                     asset.extension
                 );
             }
         }
-        assert_eq!(std::fs::read(path).unwrap(), wav);
+        for (path, original) in originals {
+            assert_eq!(std::fs::read(path).unwrap(), original);
+        }
         soup::prelude::ServerExt::disconnect(&server);
     }
 
-    fn exercise_http(port: u16, url: &str) {
+    fn exercise_http(port: u16, url: &str, expected: Vec<u8>) {
         let path = url.split_once("/audio/").unwrap().1.to_string();
         let worker = std::thread::spawn(move || {
             use std::io::Write;
+            let boundary = (expected.len() - 16).min(65530);
+            let range = format!("Range: bytes={boundary}-{}\r\n", boundary + 15);
             for (method, suffix, extra, status, length) in [
-                ("GET", path.as_str(), "", 200, 160044),
-                (
-                    "GET",
-                    path.as_str(),
-                    "Range: bytes=65530-65545\r\n",
-                    206,
-                    16,
-                ),
+                ("GET", path.as_str(), "", 200, expected.len()),
+                ("GET", path.as_str(), range.as_str(), 206, 16),
                 ("GET", path.as_str(), "Range: bytes=-10\r\n", 206, 10),
                 ("GET", path.as_str(), "Range: bytes=999999-\r\n", 416, 0),
                 ("HEAD", path.as_str(), "", 200, 0),
@@ -377,9 +420,18 @@ mod native_tests {
                 );
                 assert!(!headers.contains("access-control-allow-origin"));
                 assert_eq!(response[boundary + 4..].len(), length, "{method} {extra}");
+                let body = &response[boundary + 4..];
+                if status == 200 && method == "GET" {
+                    assert_eq!(body, expected);
+                }
                 if status == 206 {
                     assert!(headers.contains("content-range: bytes "));
-                    assert!(response[boundary + 4..].iter().all(|byte| *byte == 0));
+                    let start = if extra.contains("bytes=-10") {
+                        expected.len() - 10
+                    } else {
+                        (expected.len() - 16).min(65530)
+                    };
+                    assert_eq!(body, &expected[start..start + length]);
                 }
             }
         });
@@ -404,7 +456,7 @@ mod native_tests {
             .expect("loopback HTTP checks");
     }
 
-    fn exercise_media(url: &str, origin: &str) {
+    fn exercise_media(url: &str, origin: &str, controller: &str) {
         let manager = webkit2gtk::UserContentManager::new();
         assert!(manager.register_script_message_handler("result"));
         let outcome = Rc::new(RefCell::new(None));
@@ -424,28 +476,72 @@ mod native_tests {
         gtk::prelude::ContainerExt::add(&window, &webview);
         gtk::prelude::WidgetExt::show_all(&window);
         let html = format!(
-            r#"<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; media-src http://127.0.0.1:*/audio/"><audio muted></audio><script>
+            r#"<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; media-src http://127.0.0.1:*/audio/"><audio muted></audio><script type="module">
+{duration_probe}
+{controller}
 const a = document.querySelector('audio');
-const report = text => window.webkit.messageHandlers.result.postMessage(text);
+const player = new PlaybackController(a, async () => ({{url: '{url}'}}));
+const events = [];
+for (const name of ['loadstart', 'durationchange', 'loadedmetadata', 'loadeddata', 'canplay', 'playing', 'pause', 'seeked', 'timeupdate', 'ended', 'error']) {{
+  a.addEventListener(name, () => events.push([name, a.duration, a.currentTime, a.readyState, player.getSnapshot().phase]));
+}}
+let finished = false;
+const report = status => {{
+  if (finished) return;
+  finished = true;
+  clearTimeout(deadline);
+  window.webkit.messageHandlers.result.postMessage(JSON.stringify({{status, events}}));
+}};
+const deadline = setTimeout(() => report('playback deadline exceeded'), 12000);
+const progress = position => new Promise(resolve => {{
+  const check = () => {{
+    if (!a.paused && a.currentTime > position) {{
+      a.removeEventListener('timeupdate', check);
+      resolve();
+    }}
+  }};
+  a.addEventListener('timeupdate', check);
+  check();
+}});
 a.muted = true;
 a.onerror = () => report('media error ' + a.error?.code);
-a.onloadedmetadata = async () => {{
-  if (Math.abs(a.duration - 10) > 0.3) return report('invalid duration ' + a.duration);
+const run = async () => {{
   try {{
-    await a.play();
-    a.pause();
-    if (!a.paused) return report('pause failed');
-    a.onseeked = async () => {{
-      a.onseeked = null;
-      try {{ await a.play(); }} catch (e) {{ report(e.name); }}
-    }};
-    a.currentTime = 5;
-  }} catch (e) {{ report(e.name); }}
+    // Exercise the actual application controller, including pending play promises.
+    void player.select({{libraryId: 'fixture', assetId: 'fixture', name: 'synthetic audio'}});
+    await waitForDuration(a, 10);
+    await progress(0.1);
+    await player.toggle();
+    const pausedAt = a.currentTime;
+    await new Promise(resolve => setTimeout(resolve, 120));
+    if (!a.paused || Math.abs(a.currentTime - pausedAt) > 0.05) return report('pause failed');
+    const sought = new Promise(resolve => a.addEventListener('seeked', resolve, {{once: true}}));
+    player.seek(5);
+    await sought;
+    if (Math.abs(a.currentTime - 5) > 0.3) return report('seek failed');
+    void player.toggle();
+    await progress(5.1);
+    await player.toggle();
+    const pausedAgain = a.currentTime;
+    await new Promise(resolve => setTimeout(resolve, 120));
+    if (!a.paused || Math.abs(a.currentTime - pausedAgain) > 0.05) return report('controller pause after seek/resume failed');
+    for (let attempt = 0; attempt < 3; attempt++) {{
+      player.seek(2 + attempt);
+      void player.toggle();
+      void player.toggle();
+      if (!a.paused) return report('rapid pause failed');
+      void player.toggle();
+      await progress(2.1 + attempt);
+      await player.toggle();
+      if (!a.paused || player.getSnapshot().phase !== 'paused') return report('rapid resume/pause failed');
+    }}
+    player.clear();
+    report('ok');
+  }} catch (e) {{ report(e.message || e.name); }}
 }};
-a.ontimeupdate = () => {{ if (!a.paused && a.currentTime > 5.1) {{ a.pause(); report('ok'); }} }};
-a.src = '{}';
+void run();
 </script>"#,
-            url
+            duration_probe = include_str!("../tests/support/webkit-playback.mjs")
         );
         webview.load_html(&html, Some(origin));
         let timeout_loop = main_loop.clone();
@@ -455,6 +551,14 @@ a.src = '{}';
             timeout.remove();
         }
         gtk::prelude::GtkWindowExt::close(&window);
-        assert_eq!(outcome.borrow().as_deref(), Some("ok"));
+        let outcome = outcome.borrow();
+        let report: serde_json::Value = serde_json::from_str(
+            outcome
+                .as_deref()
+                .expect("WebKit test did not report before timeout"),
+        )
+        .expect("WebKit test report JSON");
+        println!("media events: {}", report["events"]);
+        assert_eq!(report["status"], "ok", "{report}");
     }
 }

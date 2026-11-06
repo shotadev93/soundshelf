@@ -1,5 +1,7 @@
 # SoundShelf MVP architecture plan
 
+This plan retains historical implementation/acceptance wording. For the current implemented MVP, user-reported fixed Debian acceptance and final distribution decisions, consult `docs/RELEASE_CHECKLIST.md`; historical milestone results below are not rewritten as new test results.
+
 This document describes the target architecture and acceptance criteria. Discovery implementation and verification status are recorded in `docs/MILESTONE_1.md`; persistent indexing and search are recorded in `docs/MILESTONE_2.md`. Authorized playback implementation and its pending native Linux acceptance checks are recorded in `docs/MILESTONE_3.md`. Tags, favorites, combined filtering and MVP implementation are recorded in `docs/MILESTONE_4.md`; full native GUI acceptance remains pending. Follow the four milestones in order, and do not assume a proposed module exists until its implementation is verified.
 
 ## Architecture overview
